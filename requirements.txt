@@ -1,0 +1,7 @@
+google-genai
+supabase
+pydantic
+httpx
+arxiv
+supabase
+python-dotenv

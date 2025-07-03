@@ -1,0 +1,31 @@
+name: 每日論文播客生成
+
+on:
+  workflow_dispatch: # 允許手動觸發
+  schedule:
+    - cron: "0 0 * * *" # 每天 UTC 午夜執行
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 簽出程式碼倉庫
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11" # 指定 Python 版本
+
+      - name: 安裝 uv
+        run: pip install uv
+
+      - name: 使用 uv 安裝依賴套件
+        run: uv sync
+
+      - name: 執行播客生成工作流程
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python main.py

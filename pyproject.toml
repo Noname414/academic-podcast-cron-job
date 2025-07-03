@@ -1,0 +1,15 @@
+[project]
+name = "academic-podcast-cron-job"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "arxiv>=2.2.0",
+    "google-genai>=1.24.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.11.7",
+    "python-dotenv>=1.1.1",
+    "supabase>=2.16.0",
+    "uv>=0.7.19",
+]
