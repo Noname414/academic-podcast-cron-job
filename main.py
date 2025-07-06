@@ -100,24 +100,17 @@ def main_workflow():
                 podcast_result = podcast_generator.process_paper(pdf_url=pdf_url)
                 paper_info: PaperInfo = podcast_result['paper_info']
 
-                # 5. 上傳檔案到 Supabase Storage
-                print("☁️ 正在上傳檔案到 Supabase Storage...")
-                bucket_name = SUPABASE_CONFIG["bucket_name"] # 您的 Storage bucket 名稱
+                # 5. 上傳音檔到 Supabase Storage
+                print("☁️ 正在上傳音檔到 Supabase Storage...")
+                bucket_name = SUPABASE_CONFIG["audio"]
 
-                # 為檔案定義清晰的路徑結構
-                storage_folder = f"{datetime.now().strftime('%Y%m%d')}_{arxiv_id}"
-                
-                audio_dest_path = f"{storage_folder}/audio.wav"
-                info_dest_path = f"{storage_folder}/paper_info.json"
-                script_dest_path = f"{storage_folder}/script.txt"
-
+                # 將音檔上傳到 bucket 中的 'audio' 資料夾
+                audio_dest_path = f"audio/{arxiv_id}.wav"
                 audio_url = upload_to_storage(supabase, bucket_name, podcast_result['audio_path'], audio_dest_path)
-                paper_info_url = upload_to_storage(supabase, bucket_name, podcast_result['paper_info_path'], info_dest_path)
-                script_url = upload_to_storage(supabase, bucket_name, podcast_result['script_path'], script_dest_path)
-                
                 print(f"🔗 音檔 URL: {audio_url}")
 
                 # 6. 準備資料並寫入資料庫
+                # 現在，paper_info 的內容和 script 文字稿直接存入資料庫，不再上傳對應的 .json 和 .txt 檔案
                 db_record = {
                     "arxiv_id": arxiv_id,
                     "title": paper_info.title,
@@ -133,8 +126,6 @@ def main_workflow():
                     "audio_url": audio_url,
                     "podcast_title": podcast_result['podcast_title'],
                     "podcast_script": podcast_result['script'],
-                    "paper_info_url": paper_info_url,
-                    "script_url": script_url,
                 }
                 
                 insert_paper_to_db(supabase, db_record)
