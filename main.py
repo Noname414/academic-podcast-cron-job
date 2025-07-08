@@ -166,6 +166,7 @@ def main_workflow():
                     "arxiv_url": paper.get('arxiv_url'),
                     "pdf_url": pdf_url,
                     "audio_url": audio_url,
+                    "duration_seconds": podcast_result.get('duration_seconds'),
                     # "podcast_title": podcast_result['podcast_title'],
                     # "podcast_script": podcast_result['script'],
                 }

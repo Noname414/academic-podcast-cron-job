@@ -274,6 +274,10 @@ class PaperPodcastGenerator:
             
             # 4. 生成音檔 (返回二進位資料)
             audio_data = self.generate_audio(script_text)
+
+            # 5. 計算音檔時長
+            duration_seconds = self._get_audio_duration(audio_data)
+            print(f"⏱️ 音檔時長計算完成: {duration_seconds:.2f} 秒")
             
             print("\n✅ 播客生成完成！所有內容已在記憶體中準備好。")
             
@@ -285,12 +289,36 @@ class PaperPodcastGenerator:
                 "podcast_title": podcast_title,
                 "script": script_text,
                 "audio_data": audio_data,
+                "duration_seconds": duration_seconds,
             }
             
         except Exception as e:
             # 確保拋出原始錯誤以便上層捕獲
             raise Exception(f"處理論文失敗: {str(e)}")
 
+    def _get_audio_duration(self, pcm_data: bytes, channels: int = 1, sample_width: int = 2, frame_rate: int = 24000) -> float:
+        """
+        計算 raw PCM 音訊的時長（秒）
+        
+        Args:
+            pcm_data (bytes): raw PCM 音訊資料
+            channels (int): 聲道數
+            sample_width (int): 採樣寬度（位元組）
+            frame_rate (int): 採樣率 (Hz)
+            
+        Returns:
+            float: 音訊時長（秒）
+        """
+        if not pcm_data:
+            return 0.0
+        
+        bytes_per_frame = channels * sample_width
+        if bytes_per_frame == 0:
+            return 0.0
+            
+        num_frames = len(pcm_data) / bytes_per_frame
+        duration = num_frames / frame_rate
+        return duration
 
 def main():
     """主程式，用於獨立測試"""
@@ -317,6 +345,7 @@ def main():
         print("\n=== 處理結果摘要 ===")
         print(f"🎧 Podcast 標題: {results['podcast_title']}")
         print(f"🎵 音檔大小: {len(results['audio_data']) / 1024:.2f} KB")
+        print(f"⏱️ 音檔時長: {results['duration_seconds']:.2f} 秒")
         print(f"📄 論文標題: {results['paper_info'].title}")
         print(f"📝 逐字稿長度: {len(results['script'])} 字")
         
