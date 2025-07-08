@@ -3,7 +3,7 @@ name: 每日論文播客生成
 on:
   workflow_dispatch: # 允許手動觸發
   schedule:
-    - cron: "0 0 * * *" # 每天 UTC 午夜執行
+    - cron: "0 16 * * *" # 每天 UTC 午夜執行 台灣時區+8
 
 jobs:
   build-and-deploy:
@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11" # 指定 Python 版本
 
       - name: 安裝 uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: 使用 uv 安裝依賴套件
         run: uv sync
@@ -28,4 +28,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python main.py
+        run: uv run main.py
