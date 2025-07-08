@@ -184,32 +184,38 @@ class PaperPodcastGenerator:
             print("正在生成播客逐字稿...")
             innovations_text = '\n'.join([f"- {innovation}" for innovation in paper_info.innovations])
             prompt = f"""
-            基於以下論文資訊，為播客節目「學術新知解密」生成一段專業且引人入勝的逐字稿，確保對話內容自然流暢。
+            根據以下論文內容，整理出雙人 Podcast 逐字稿，遵循以下規則：
+            - 逐字稿使用繁體中文。
+            - 逐字稿總長度約 1000 字。
+            - 分別有 主持人 "{self.speaker1}" 與 主持人 "{self.speaker2}"，"{self.speaker1}" 為台灣人年輕男性、"{self.speaker2}" 為台灣人年輕女性。
+            - 如果有必要，主持人互相使用 "你" 稱呼。
+            - 皆使用台灣用語、台灣連接詞，可以適時使用台灣狀聲詞。
+            - 如果有需要描述語氣、情緒，使用 "{{}}"，例如 "{{哈哈大笑}}" 或 "{{難過情緒}}"。
+            - 只需要輸出逐字稿，不需要其他說明。
+            - <其他要求，例如流程、架構、著重特定聽者>
+
+            逐字稿範例：
+            ```
+            Speaker 1: {{驚嘆}} 哇塞！各位聽眾朋友，你們知道嗎？
+            Speaker 2: {{疑問語氣}} 最近有什麼有趣的新聞嗎？
+            Speaker 1: NotebookLM 最近加入一個「Audio Overviews」新功能。
+            Speaker 2: {{小小的疑問}} 你是說 Google 推出的 NotebookLM 嗎？
+            Speaker 1: 沒錯！它最近有個新功能，可以把 PDF、影片、圖檔這些資料，直接做成精美的簡報，而且還有圖片跟流暢的旁白喔！據說它可能用了那個很威的影片生成模型 Veo2。
+            Speaker 2: {{語氣轉折、好奇}} 不過咧，講到這裡，可能有些台灣朋友會想說：「{{疑問語氣}} 那中文版可以用嗎？」
+            Speaker 1: {{微微嘆氣}} 欸，很可惜，目前中文版的 NotebookLM 還沒看到這個 Video Overviews 的功能...
+            ```
             
             論文資訊：
+            ```
             標題：{paper_info.title}
             研究領域：{paper_info.field}
             摘要：{paper_info.abstract}
             創新點：{innovations_text}
             研究方法：{paper_info.method}
             主要結果：{paper_info.results}
+            ```
             
-            播客要求：
-            - 主持人1：{self.speaker1}（偏向理論分析）
-            - 主持人2：{self.speaker2}（偏向實際應用）
-            - 節目名稱：「學術新知解密」
-            - 時長：約5-7分鐘
-            - 語氣：專業但親和
-            - 結構：開場、背景介紹、核心創新點討論、應用價值探討、總結。
-            
-            請直接輸出逐字稿，不要輸出任何其他內容。
             """
-            
-                        
-            # 請在逐字稿中明確標示兩位主持人的發言，例如：
-            # {self.speaker1}: 【興奮地說】大家好...
-            # {self.speaker2}: 【笑著說】沒錯...
-            
             response = self.client.models.generate_content(
                 model=GEMINI_MODELS["script_generation"],
                 contents=prompt,
