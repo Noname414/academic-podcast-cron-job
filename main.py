@@ -3,6 +3,7 @@ import os
 import mimetypes
 import io
 import wave
+import json
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -63,6 +64,14 @@ def convert_pcm_to_wav_in_memory(pcm_data: bytes, channels: int = 1, sample_widt
             wf.writeframes(pcm_data)
         return wav_file.getvalue()
 
+def create_paper_output_folder(arxiv_id: str) -> Path:
+    """為單篇論文創建專用的本地輸出資料夾"""
+    output_base = Path(ARXIV_SEARCH_CONFIG.get("output_base_folder", "Podcast_output"))
+    paper_folder = output_base / arxiv_id
+    paper_folder.mkdir(parents=True, exist_ok=True)
+    print(f"📁 已創建本地輸出資料夾: {paper_folder}")
+    return paper_folder
+
 def insert_paper_to_db(client: Client, paper_data: dict):
     """將處理完的論文資訊插入到 Supabase 資料庫中"""
     try:
@@ -110,14 +119,33 @@ def main_workflow():
                 podcast_result = podcast_generator.process_paper(pdf_url=pdf_url)
                 paper_info: PaperInfo = podcast_result['paper_info']
 
-                # 5. 上傳音檔到 Supabase Storage
-                print("☁️ 正在上傳音檔到 Supabase Storage...")
-                
+                # 在上傳前，先在本地儲存所有檔案
+                output_folder = create_paper_output_folder(arxiv_id)
+
+                # 儲存論文資訊
+                info_path = output_folder / f"{arxiv_id}_info.json"
+                with open(info_path, 'w', encoding='utf-8') as f:
+                    json.dump(paper_info.model_dump(), f, ensure_ascii=False, indent=4)
+                print(f"📄 論文資訊已儲存到: {info_path}")
+
+                # 儲存逐字稿
+                script_path = output_folder / f"{arxiv_id}_script.txt"
+                script_path.write_text(podcast_result['script'], encoding='utf-8')
+                print(f"📝 逐字稿已儲存到: {script_path}")
+
                 # 將 raw PCM 音訊轉換為 WAV 格式
                 print("🎙️ 正在將音訊轉換為 WAV 格式...")
                 wav_data = convert_pcm_to_wav_in_memory(podcast_result['audio_data'])
+                
+                # 儲存音檔
+                audio_path = output_folder / f"{arxiv_id}.wav"
+                with open(audio_path, 'wb') as f:
+                    f.write(wav_data)
+                print(f"🎵 音檔已儲存到: {audio_path}")
 
-                bucket_name = SUPABASE_CONFIG["audio"]
+                # 5. 上傳音檔到 Supabase Storage
+                print("☁️ 正在上傳音檔到 Supabase Storage...")
+                bucket_name = SUPABASE_CONFIG["bucket_name"]
                 audio_dest_path = f"{arxiv_id}.wav"
                 audio_url = upload_to_storage(supabase, bucket_name, audio_dest_path, wav_data)
                 print(f"🔗 音檔 URL: {audio_url}")
