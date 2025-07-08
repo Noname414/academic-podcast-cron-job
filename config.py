@@ -31,7 +31,7 @@ PODCAST_SPEAKERS = {
 # ArXiv 搜尋設定
 ARXIV_SEARCH_CONFIG = {
     # 每次執行時，從 arXiv 獲取的最新論文數量
-    "max_results": 1,
+    "max_results": 5,
     
     # 搜尋的論文領域，例如 'cat:cs.AI', 'cat:cs.CV', 'cat:cs.CL'
     "query": "cat:cs.AI"

@@ -178,6 +178,9 @@ def main_workflow():
                 print(f"處理論文 {arxiv_id} 時發生嚴重錯誤: {e}")
                 # 即使單篇論文失敗，也繼續處理下一篇
                 continue
+            
+            # 預設只處理一篇論文
+            break
 
     except Exception as e:
         print(f"😭 工作流程執行失敗: {e}")
