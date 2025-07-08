@@ -36,8 +36,9 @@ def upload_to_storage(client: Client, bucket_name: str, destination_path: str, f
     """上傳二進位資料到 Supabase Storage 並返回公開 URL"""
     try:
         # 根據目標路徑猜測 MIME 類型，例如 'audio/wav'
-        content_type, _ = mimetypes.guess_type(destination_path)
-        options = {"contentType": content_type or "application/octet-stream"}
+        # content_type, _ = mimetypes.guess_type(destination_path)
+        # options = {"contentType": content_type or "application/octet-stream"}
+        options = {"contentType": "audio/wav"}
 
         # 首先嘗試更新（如果檔案已存在）
         try:
