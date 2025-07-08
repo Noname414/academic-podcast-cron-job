@@ -40,7 +40,7 @@ def search_latest_ai_paper(query: str, max_results: int) -> List[Dict[str, Any]]
             "updated": result.updated,
             "title": result.title,
             "authors": [author.name for author in result.authors],
-            "primary_category": result.primary_category,
+            "category": result.primary_category,
             "arxiv_url": result.entry_id,
             "pdf_url": result.pdf_url,
             "summary": result.summary

@@ -25,6 +25,7 @@ class PaperInfo(BaseModel):
     title: str = Field(description="論文標題的中文翻譯")
     abstract: str = Field(description="論文摘要的中文翻譯，約200-300字")
     field: str = Field(description="主要研究領域")
+    tags: List[str] = Field(description="論文的關鍵字標籤，3-5個")
     innovations: List[str] = Field(description="核心創新點或貢獻，3-5個要點")
     method: str = Field(description="研究方法簡述")
     results: str = Field(description="主要結果或發現")
@@ -57,21 +58,6 @@ class PaperPodcastGenerator:
         # 檔案大小限制
         self.max_file_size = 100 * 1024 * 1024  # 100MB
         
-    def create_output_folder(self, paper_title: str) -> Path:
-        """為每次執行創建專用的輸出資料夾"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_title = "".join(c for c in paper_title if c.isalnum() or c in (' ', '-', '_', '，', '。'))
-        safe_title = safe_title[:30].strip() or "論文播客"
-        folder_name = f"{timestamp}_{safe_title}"
-        
-        output_base = Path(FILE_CONFIG["output_base_folder"])
-        output_base.mkdir(exist_ok=True)
-        output_folder = output_base / folder_name
-        output_folder.mkdir(exist_ok=True)
-        
-        print(f"📁 創建輸出資料夾: {output_folder}")
-        return output_folder
-    
     def read_pdf_from_url(self, pdf_url: str) -> bytes:
         """從URL讀取PDF內容"""
         try:
@@ -166,6 +152,7 @@ class PaperPodcastGenerator:
             4. 總結3-5個核心創新點或貢獻
             5. 簡述研究方法
             6. 概括主要結果或發現
+            7. 提供3-5個最相關的關鍵字標籤 (tags)
             請確保所有內容都使用繁體中文，並且準確反映論文的核心內容。
             """
             
@@ -208,7 +195,8 @@ class PaperPodcastGenerator:
             主要結果：{paper_info.results}
             
             播客要求：
-            - 主持人：{self.speaker1}（偏向理論分析）和 {self.speaker2}（偏向實際應用）
+            - 主持人1：{self.speaker1}（偏向理論分析）
+            - 主持人2：{self.speaker2}（偏向實際應用）
             - 節目名稱：「學術新知解密」
             - 時長：約5-7分鐘
             - 語氣：專業但親和
@@ -231,8 +219,8 @@ class PaperPodcastGenerator:
         except Exception as e:
             raise Exception(f"生成逐字稿失敗: {str(e)}")
     
-    def generate_audio(self, script_text: str, output_folder: Path, filename: str = "播客音檔.wav") -> Path:
-        """將逐字稿轉換為語音"""
+    def generate_audio(self, script_text: str) -> bytes:
+        """將逐字稿轉換為語音並回傳二進位資料"""
         try:
             print("正在生成語音...")
             response = self.client.models.generate_content(
@@ -252,38 +240,21 @@ class PaperPodcastGenerator:
             )
             
             audio_data = response.candidates[0].content.parts[0].inline_data.data
-            output_path = output_folder / filename
-            self.save_wave_file(str(output_path), audio_data)
-            
-            print(f"🎵 音頻文件已保存: {output_path}")
-            return output_path
+            print(f"🎵 語音生成完畢，大小: {len(audio_data):,} bytes")
+            return audio_data
             
         except Exception as e:
             raise Exception(f"生成語音失敗: {str(e)}")
     
-    def save_wave_file(self, filename: str, pcm_data: bytes, channels: int = 1, rate: int = 24000, sample_width: int = 2):
-        """保存Wave格式音頻文件"""
-        with wave.open(filename, "wb") as wf:
-            wf.setnchannels(channels)
-            wf.setsampwidth(sample_width)
-            wf.setframerate(rate)
-            wf.writeframes(pcm_data)
-    
-    def save_json(self, data: Dict, path: Path):
-        """將字典儲存為 JSON 檔案"""
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"📄 JSON 文件已保存: {path}")
-    
     def process_paper(self, pdf_url: str) -> Dict[str, Any]:
         """
-        完整處理單篇論文，從下載到生成所有檔案，並返回所有資訊。
+        完整處理單篇論文，從下載到生成所有內容，並在記憶體中回傳。
         
         Args:
             pdf_url (str): 論文的 PDF URL。
             
         Returns:
-            Dict[str, Any]: 包含所有生成資訊和檔案路徑的字典。
+            Dict[str, Any]: 包含所有生成資訊和音檔資料的字典。
         """
         try:
             # 1. 下載 PDF
@@ -292,24 +263,13 @@ class PaperPodcastGenerator:
             # 2. 分析論文
             paper_info = self.extract_paper_info(pdf_data)
             
-            # 3. 創建輸出資料夾
-            output_folder = self.create_output_folder(paper_info.title)
-            
-            # 4. 生成逐字稿 (現在返回純文字)
+            # 3. 生成逐字稿 (返回純文字)
             script_text = self.generate_podcast_script(paper_info)
             
-            # 5. 生成音檔
-            audio_path = self.generate_audio(script_text, output_folder)
+            # 4. 生成音檔 (返回二進位資料)
+            audio_data = self.generate_audio(script_text)
             
-            # 6. 保存論文資訊和逐字稿
-            paper_info_path = output_folder / "論文資訊.json"
-            self.save_json(paper_info.model_dump(), paper_info_path)
-            
-            script_path = output_folder / "播客逐字稿.txt"
-            script_path.write_text(script_text, encoding='utf-8')
-            print(f"📝 播客逐字稿已保存: {script_path}")
-            
-            print(f"\n✅ 播客生成完成！所有文件已保存到: {output_folder}")
+            print("\n✅ 播客生成完成！所有內容已在記憶體中準備好。")
             
             # 建立一個預設的 Podcast 標題
             podcast_title = f"學術新知解密：深入探討《{paper_info.title}》"
@@ -318,10 +278,7 @@ class PaperPodcastGenerator:
                 "paper_info": paper_info,
                 "podcast_title": podcast_title,
                 "script": script_text,
-                "output_folder": str(output_folder),
-                "audio_path": str(audio_path),
-                "paper_info_path": str(paper_info_path),
-                "script_path": str(script_path),
+                "audio_data": audio_data,
             }
             
         except Exception as e:
@@ -352,10 +309,20 @@ def main():
         results = generator.process_paper(pdf_url)
         
         print("\n=== 處理結果摘要 ===")
-        print(f"📁 輸出資料夾: {results['output_folder']}")
-        print(f"🎵 音檔路徑: {results['audio_path']}")
-        print(f"📄 論文資訊路徑: {results['paper_info_path']}")
-        print(f"📝 逐字稿路徑: {results['script_path']}")
+        print(f"🎧 Podcast 標題: {results['podcast_title']}")
+        print(f"🎵 音檔大小: {len(results['audio_data']) / 1024:.2f} KB")
+        print(f"📄 論文標題: {results['paper_info'].title}")
+        print(f"📝 逐字稿長度: {len(results['script'])} 字")
+        
+        # 為了測試，可以選擇性地儲存音檔
+        save_choice = input("是否要將音檔儲存為 'test_output.wav'？(y/N): ").lower()
+        if save_choice == 'y':
+            with wave.open('test_output.wav', 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(24000)
+                wf.writeframes(results['audio_data'])
+            print("音檔已儲存。")
         
     except Exception as e:
         print(f"\n❌ 發生錯誤: {e}")

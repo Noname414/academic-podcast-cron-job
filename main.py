@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 import mimetypes
+import io
+import wave
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -29,29 +31,37 @@ def check_paper_exists(client: Client, arxiv_id: str) -> bool:
         print(f"檢查論文時發生錯誤: {e}")
         return False
 
-def upload_to_storage(client: Client, bucket_name: str, file_path: str, destination_path: str) -> str:
-    """上傳文件到 Supabase Storage 並返回公開 URL"""
+def upload_to_storage(client: Client, bucket_name: str, destination_path: str, file_data: bytes) -> str:
+    """上傳二進位資料到 Supabase Storage 並返回公開 URL"""
     try:
-        content_type, _ = mimetypes.guess_type(file_path)
+        # 根據目標路徑猜測 MIME 類型，例如 'audio/wav'
+        content_type, _ = mimetypes.guess_type(destination_path)
         options = {"contentType": content_type or "application/octet-stream"}
 
-        with open(file_path, 'rb') as f:
-            # 首先嘗試更新（如果檔案已存在）
-            try:
-                client.storage.from_(bucket_name).update(path=destination_path, file=f, file_options=options)
-                print(f"🔄 成功更新 Storage 中的檔案: {destination_path}")
-            except Exception:
-                # 如果更新失敗（通常是因為檔案不存在），則上傳新檔案
-                f.seek(0) # 重設檔案指標
-                client.storage.from_(bucket_name).upload(path=destination_path, file=f, file_options=options)
-                print(f"🔼 成功上傳新檔案到 Storage: {destination_path}")
+        # 首先嘗試更新（如果檔案已存在）
+        try:
+            client.storage.from_(bucket_name).update(path=destination_path, file=file_data, file_options=options)
+            print(f"🔄 成功更新 Storage 中的檔案: {destination_path}")
+        except Exception:
+            # 如果更新失敗（通常是因為檔案不存在），則上傳新檔案
+            client.storage.from_(bucket_name).upload(path=destination_path, file=file_data, file_options=options)
+            print(f"🔼 成功上傳新檔案到 Storage: {destination_path}")
 
         # 獲取公開 URL
         response = client.storage.from_(bucket_name).get_public_url(destination_path)
         return response
     except Exception as e:
-        raise Exception(f"上傳 {file_path} 到 Storage 時失敗: {e}")
+        raise Exception(f"上傳資料到 Storage 時失敗: {e}")
 
+def convert_pcm_to_wav_in_memory(pcm_data: bytes, channels: int = 1, sample_width: int = 2, frame_rate: int = 24000) -> bytes:
+    """將 raw PCM 音訊資料在記憶體中轉換為 WAV 格式"""
+    with io.BytesIO() as wav_file:
+        with wave.open(wav_file, 'wb') as wf:
+            wf.setnchannels(channels)
+            wf.setsampwidth(sample_width)
+            wf.setframerate(frame_rate)
+            wf.writeframes(pcm_data)
+        return wav_file.getvalue()
 
 def insert_paper_to_db(client: Client, paper_data: dict):
     """將處理完的論文資訊插入到 Supabase 資料庫中"""
@@ -102,30 +112,34 @@ def main_workflow():
 
                 # 5. 上傳音檔到 Supabase Storage
                 print("☁️ 正在上傳音檔到 Supabase Storage...")
-                bucket_name = SUPABASE_CONFIG["audio"]
+                
+                # 將 raw PCM 音訊轉換為 WAV 格式
+                print("🎙️ 正在將音訊轉換為 WAV 格式...")
+                wav_data = convert_pcm_to_wav_in_memory(podcast_result['audio_data'])
 
-                # 將音檔上傳到 bucket 中的 'audio' 資料夾
-                audio_dest_path = f"audio/{arxiv_id}.wav"
-                audio_url = upload_to_storage(supabase, bucket_name, podcast_result['audio_path'], audio_dest_path)
+                bucket_name = SUPABASE_CONFIG["audio"]
+                audio_dest_path = f"{arxiv_id}.wav"
+                audio_url = upload_to_storage(supabase, bucket_name, audio_dest_path, wav_data)
                 print(f"🔗 音檔 URL: {audio_url}")
 
                 # 6. 準備資料並寫入資料庫
-                # 現在，paper_info 的內容和 script 文字稿直接存入資料庫，不再上傳對應的 .json 和 .txt 檔案
                 db_record = {
                     "arxiv_id": arxiv_id,
                     "title": paper_info.title,
                     "authors": paper.get('authors', []),
                     "publish_date": paper.get('updated').isoformat(),
                     "summary": paper_info.abstract,
-                    "category": paper_info.field,
+                    "full_text": podcast_result['script'],
+                    "category": paper.get('category'),
+                    "tags": paper_info.tags,
                     "innovations": paper_info.innovations,
                     "method": paper_info.method,
                     "results": paper_info.results,
                     "arxiv_url": paper.get('arxiv_url'),
                     "pdf_url": pdf_url,
                     "audio_url": audio_url,
-                    "podcast_title": podcast_result['podcast_title'],
-                    "podcast_script": podcast_result['script'],
+                    # "podcast_title": podcast_result['podcast_title'],
+                    # "podcast_script": podcast_result['script'],
                 }
                 
                 insert_paper_to_db(supabase, db_record)

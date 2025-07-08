@@ -45,6 +45,6 @@ FILE_CONFIG = {
 
 # Supabase 設定
 SUPABASE_CONFIG = {
-    # 用於儲存音檔、逐字稿等檔案的 Storage Bucket 名稱
-    "bucket_name": "podcast-files"
+    # 用於儲存音檔的 Storage Bucket 名稱
+    "bucket_name": "audios"
 } 
