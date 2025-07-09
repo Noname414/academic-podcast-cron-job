@@ -194,4 +194,8 @@ def main_workflow():
     log_with_timestamp("\n🏁 工作流程執行完畢。")
 
 if __name__ == "__main__":
-    main_workflow() 
+    # main_workflow() 
+    print("Hello, World!")
+    print(os.environ.get("SUPABASE_URL"))
+    print(os.environ.get("SUPABASE_KEY"))
+    print(os.environ.get("OPENAI_API_KEY"))
