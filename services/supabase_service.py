@@ -36,7 +36,7 @@ class SupabaseService:
             self.client.storage.from_(self.bucket_name).upload(
                 path=destination_path,
                 file=audio_data,
-                file_options={"contentType": "audio/wav", "upsert": True}
+                file_options={"contentType": "audio/wav", "upsert": "true"}
             )
             logging.info(f"🔼 成功上傳/更新 Storage 中的音檔: {destination_path}")
 
