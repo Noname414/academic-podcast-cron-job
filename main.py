@@ -119,74 +119,74 @@ def main_workflow():
 
             # 4. 處理新論文
             log_with_timestamp(f"✨ 找到新論文，開始生成 Podcast...")
-            # try:
-            #     # 生成 Podcast 內容和檔案
-            #     podcast_result = podcast_generator.process_paper(pdf_url=pdf_url)
-            #     paper_info: PaperInfo = podcast_result['paper_info']
+            try:
+                # 生成 Podcast 內容和檔案
+                podcast_result = podcast_generator.process_paper(pdf_url=pdf_url)
+                paper_info: PaperInfo = podcast_result['paper_info']
 
-            #     # 在上傳前，先在本地儲存所有檔案
-            #     output_folder = create_paper_output_folder(arxiv_id)
+                # # 在上傳前，先在本地儲存所有檔案
+                # output_folder = create_paper_output_folder(arxiv_id)
 
-            #     # 儲存論文資訊
-            #     info_path = output_folder / f"{arxiv_id}_info.json"
-            #     with open(info_path, 'w', encoding='utf-8') as f:
-            #         json.dump(paper_info.model_dump(), f, ensure_ascii=False, indent=4)
-            #     log_with_timestamp(f"📄 論文資訊已儲存到: {info_path}")
+                # # 儲存論文資訊
+                # info_path = output_folder / f"{arxiv_id}_info.json"
+                # with open(info_path, 'w', encoding='utf-8') as f:
+                #     json.dump(paper_info.model_dump(), f, ensure_ascii=False, indent=4)
+                # log_with_timestamp(f"📄 論文資訊已儲存到: {info_path}")
 
-            #     # 儲存逐字稿
-            #     script_path = output_folder / f"{arxiv_id}_script.txt"
-            #     script_path.write_text(podcast_result['script'], encoding='utf-8')
-            #     log_with_timestamp(f"📝 逐字稿已儲存到: {script_path}")
+                # # 儲存逐字稿
+                # script_path = output_folder / f"{arxiv_id}_script.txt"
+                # script_path.write_text(podcast_result['script'], encoding='utf-8')
+                # log_with_timestamp(f"📝 逐字稿已儲存到: {script_path}")
 
-            #     # 將 raw PCM 音訊轉換為 WAV 格式
-            #     log_with_timestamp("🎙️ 正在將音訊轉換為 WAV 格式...")
-            #     wav_data = convert_pcm_to_wav_in_memory(podcast_result['audio_data'])
+                # 將 raw PCM 音訊轉換為 WAV 格式
+                log_with_timestamp("🎙️ 正在將音訊轉換為 WAV 格式...")
+                wav_data = convert_pcm_to_wav_in_memory(podcast_result['audio_data'])
                 
-            #     # 儲存音檔
-            #     audio_path = output_folder / f"{arxiv_id}.wav"
-            #     with open(audio_path, 'wb') as f:
-            #         f.write(wav_data)
-            #     log_with_timestamp(f"🎵 音檔已儲存到: {audio_path}")
+                # # 儲存音檔
+                # audio_path = output_folder / f"{arxiv_id}.wav"
+                # with open(audio_path, 'wb') as f:
+                #     f.write(wav_data)
+                # log_with_timestamp(f"🎵 音檔已儲存到: {audio_path}")
 
-            #     # 5. 上傳音檔到 Supabase Storage
-            #     log_with_timestamp("☁️ 正在上傳音檔到 Supabase Storage...")
-            #     bucket_name = SUPABASE_CONFIG["bucket_name"]
-            #     audio_dest_path = f"{arxiv_id}.wav"
-            #     audio_url = upload_to_storage(supabase, bucket_name, audio_dest_path, wav_data)
-            #     log_with_timestamp(f"🔗 音檔 URL: {audio_url}")
+                # 5. 上傳音檔到 Supabase Storage
+                log_with_timestamp("☁️ 正在上傳音檔到 Supabase Storage...")
+                bucket_name = SUPABASE_CONFIG["bucket_name"]
+                audio_dest_path = f"{arxiv_id}.wav"
+                audio_url = upload_to_storage(supabase, bucket_name, audio_dest_path, wav_data)
+                log_with_timestamp(f"🔗 音檔 URL: {audio_url}")
 
-            #     # 6. 準備資料並寫入資料庫
-            #     duration = podcast_result.get('duration_seconds')
-            #     db_record = {
-            #         "arxiv_id": arxiv_id,
-            #         "title": paper_info.title,
-            #         "authors": paper.get('authors', []),
-            #         "publish_date": paper.get('updated').isoformat(),
-            #         "summary": paper_info.abstract,
-            #         "full_text": podcast_result['script'],
-            #         "category": paper.get('category'),
-            #         "tags": paper_info.tags,
-            #         "innovations": paper_info.innovations,
-            #         "method": paper_info.method,
-            #         "results": paper_info.results,
-            #         "arxiv_url": paper.get('arxiv_url'),
-            #         "pdf_url": pdf_url,
-            #         "audio_url": audio_url,
-            #         "duration_seconds": round(duration) if duration is not None else None,
-            #         # "podcast_title": podcast_result['podcast_title'],
-            #         # "podcast_script": podcast_result['script'],
-            #     }
+                # 6. 準備資料並寫入資料庫
+                duration = podcast_result.get('duration_seconds')
+                db_record = {
+                    "arxiv_id": arxiv_id,
+                    "title": paper_info.title,
+                    "authors": paper.get('authors', []),
+                    "publish_date": paper.get('updated').isoformat(),
+                    "summary": paper_info.abstract,
+                    "full_text": podcast_result['script'],
+                    "category": paper.get('category'),
+                    "tags": paper_info.tags,
+                    "innovations": paper_info.innovations,
+                    "method": paper_info.method,
+                    "results": paper_info.results,
+                    "arxiv_url": paper.get('arxiv_url'),
+                    "pdf_url": pdf_url,
+                    "audio_url": audio_url,
+                    "duration_seconds": round(duration) if duration is not None else None,
+                    # "podcast_title": podcast_result['podcast_title'],
+                    # "podcast_script": podcast_result['script'],
+                }
                 
-            #     insert_paper_to_db(supabase, db_record)
-            #     log_with_timestamp(f"🎉 成功處理並儲存論文: {paper_info.title}")
+                insert_paper_to_db(supabase, db_record)
+                log_with_timestamp(f"🎉 成功處理並儲存論文: {paper_info.title}")
 
-            # except Exception as e:
-            #     log_with_timestamp(f"處理論文 {arxiv_id} 時發生嚴重錯誤: {e}")
-            #     # 即使單篇論文失敗，也繼續處理下一篇
-            #     continue
+            except Exception as e:
+                log_with_timestamp(f"處理論文 {arxiv_id} 時發生嚴重錯誤: {e}")
+                # 即使單篇論文失敗，也繼續處理下一篇
+                continue
             
-            # # 預設只處理一篇論文
-            # break
+            # 預設只處理一篇論文
+            break
 
     except Exception as e:
         log_with_timestamp(f"😭 工作流程執行失敗: {e}")
