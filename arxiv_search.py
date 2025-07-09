@@ -2,10 +2,11 @@
 import json
 import arxiv
 import datetime
+import logging
 from typing import List, Dict, Any
 
-# 匯入設定
-from config import ARXIV_SEARCH_CONFIG
+# 匯入重構後的設定模組
+from config import settings
 
 def json_default(o: Any) -> Any:
     """自訂 JSON 序列化程式，用於處理預設無法序列化的物件。"""
@@ -59,19 +60,22 @@ def save_results_to_json(results: List[Dict[str, Any]], filename: str = "arxiv_s
     """
     with open(filename, "w", encoding='utf-8') as f:
         json.dump(results, f, default=json_default, indent=4, ensure_ascii=False)
-    print(f"成功將 {len(results)} 筆結果儲存到 {filename}")
+    logging.info(f"成功將 {len(results)} 筆結果儲存到 {filename}")
 
 if __name__ == "__main__":
-    print("正在搜尋最新的 AI 論文...")
+    # 為了讓這個腳本可以獨立執行時也能看到日誌，我們在此處進行基本設定
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    
+    logging.info("正在搜尋最新的 AI 論文 (獨立執行測試)...")
     latest_papers = search_latest_ai_paper(
-        query=ARXIV_SEARCH_CONFIG["query"],
-        max_results=ARXIV_SEARCH_CONFIG["max_results"]
+        query=settings.ARXIV_QUERY,
+        max_results=settings.ARXIV_MAX_RESULTS
     )
     
     if latest_papers:
         save_results_to_json(latest_papers)
     else:
-        print("找不到新的論文。")
+        logging.info("找不到新的論文。")
 
     # print("📄 Title:", result.title)
     # print("👨‍🔬 Authors:", [author.name for author in result.authors])

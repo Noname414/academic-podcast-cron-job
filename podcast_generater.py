@@ -3,7 +3,7 @@
 論文播客生成器（結構化輸出版）
 使用 Gemini API 結構化輸出
 """
-
+import logging
 import os
 import wave
 import json
@@ -17,8 +17,18 @@ from google.genai.client import Client
 from google.genai import types
 from google.genai.types import GenerateContentConfig, SpeechConfig, MultiSpeakerVoiceConfig, SpeakerVoiceConfig, VoiceConfig, PrebuiltVoiceConfig
 
-# 匯入設定
-from config import GEMINI_MODELS, PODCAST_SPEAKERS, FILE_CONFIG
+# --- 模組內部常數設定 ---
+GEMINI_MODELS = {
+    "info_extraction": "gemini-2.5-pro",
+    "script_generation": "gemini-2.5-pro",
+    "tts": "gemini-2.5-pro-preview-tts",
+}
+
+PODCAST_SPEAKERS = {
+    "speaker1": {"name": "林冠傑", "voice": "Charon"},
+    "speaker2": {"name": "林欣潔", "voice": "Zephyr"},
+}
+# -------------------------
 
 class PaperInfo(BaseModel):
     """論文資訊的結構化模型"""
@@ -38,16 +48,19 @@ class PodcastScript(BaseModel):
     duration_estimate: str = Field(description="預估播放時間")
 
 class PaperPodcastGenerator:
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str):
         """
         初始化播客生成器
         
         Args:
-            api_key (str): Gemini API 金鑰，如果為 None 則從環境變數讀取
+            api_key (str): Gemini API 金鑰
         """
-        
-        # 如果提供了 api_key，則使用它，否則 Client 會自動從環境變數尋找
-        self.client = Client(api_key=api_key)
+        # Google Generative AI Python SDK in v0.5.0 has a bug
+        # where it doesn't properly read the GEMEINI_API_KEY from the environment.
+        # This is a workaround to explicitly pass the key.
+        # See: https://github.com/google/generative-ai-python/issues/327
+        # genai.configure(api_key=api_key)
+        self.client = genai.Client()
         
         # 從設定檔讀取主持人設定
         self.speaker1 = PODCAST_SPEAKERS["speaker1"]["name"]
@@ -58,14 +71,10 @@ class PaperPodcastGenerator:
         # 檔案大小限制
         self.max_file_size = 100 * 1024 * 1024  # 100MB
 
-    def _log(self, message: str):
-        """帶有時間戳記的日誌記錄"""
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
-        
     def read_pdf_from_url(self, pdf_url: str) -> bytes:
         """從URL讀取PDF內容"""
         try:
-            self._log(f"正在下載PDF: {pdf_url}")
+            logging.info(f"正在下載PDF: {pdf_url}")
             if not pdf_url.startswith(('http://', 'https://')):
                 raise ValueError(f"無效的URL格式: {pdf_url}")
             
@@ -74,7 +83,7 @@ class PaperPodcastGenerator:
                 response.raise_for_status()
                 
                 if 'pdf' not in response.headers.get('content-type', '').lower() and not pdf_url.lower().endswith('.pdf'):
-                    self._log(f"警告: 內容類型可能不是PDF: {response.headers.get('content-type', '')}")
+                    logging.warning(f"警告: 內容類型可能不是PDF: {response.headers.get('content-type', '')}")
                 
                 pdf_data = response.content
                 if not pdf_data.startswith(b'%PDF'):
@@ -98,7 +107,7 @@ class PaperPodcastGenerator:
         try:
             pdf_path = Path(pdf_path).resolve()
             
-            self._log(f"正在讀取檔案: {pdf_path}")
+            logging.info(f"正在讀取檔案: {pdf_path}")
             
             if not pdf_path.exists():
                 current_dir = Path.cwd()
@@ -121,10 +130,10 @@ class PaperPodcastGenerator:
                     f"(最大 {self.max_file_size / 1024 / 1024}MB)"
                 )
             
-            self._log(f"檔案大小: {file_size / 1024 / 1024:.2f}MB")
+            logging.info(f"檔案大小: {file_size / 1024 / 1024:.2f}MB")
             
             if not pdf_path.suffix.lower() == '.pdf':
-                self._log(f"警告: 檔案擴展名不是.pdf: {pdf_path.suffix}")
+                logging.warning(f"警告: 檔案擴展名不是.pdf: {pdf_path.suffix}")
             
             with open(pdf_path, 'rb') as f:
                 pdf_data = f.read()
@@ -132,7 +141,7 @@ class PaperPodcastGenerator:
             if not pdf_data.startswith(b'%PDF'):
                 raise ValueError("檔案不是有效的PDF格式")
             
-            self._log(f"✅ 成功讀取PDF檔案，大小: {len(pdf_data):,} bytes")
+            logging.info(f"✅ 成功讀取PDF檔案，大小: {len(pdf_data):,} bytes")
             return pdf_data
             
         except FileNotFoundError as e:
@@ -147,7 +156,7 @@ class PaperPodcastGenerator:
     def extract_paper_info(self, pdf_data: bytes) -> PaperInfo:
         """使用Gemini結構化輸出從PDF中提取論文資訊"""
         try:
-            self._log("正在分析論文內容...")
+            logging.info("正在分析論文內容...")
             prompt = """
             請分析這篇學術論文，並用繁體中文提取以下關鍵資訊：
             1. 將論文標題翻譯成繁體中文
@@ -176,7 +185,7 @@ class PaperPodcastGenerator:
             )
             
             paper_info = PaperInfo.model_validate_json(response.text)
-            self._log(f"✅ 成功提取論文資訊: {paper_info.title}")
+            logging.info(f"✅ 成功提取論文資訊: {paper_info.title}")
             return paper_info
             
         except Exception as e:
@@ -185,7 +194,7 @@ class PaperPodcastGenerator:
     def generate_podcast_script(self, paper_info: PaperInfo) -> Dict[str, Any]:
         """生成結構化播客討論逐字稿"""
         try:
-            self._log("正在生成播客逐字稿...")
+            logging.info("正在生成播客逐字稿...")
             innovations_text = '\n'.join([f"- {innovation}" for innovation in paper_info.innovations])
             prompt = f"""
             根據以下論文內容，整理出雙人 Podcast 逐字稿，遵循以下規則：
@@ -232,7 +241,7 @@ class PaperPodcastGenerator:
     def generate_audio(self, script_text: str) -> bytes:
         """將逐字稿轉換為語音並回傳二進位資料"""
         try:
-            self._log("正在生成語音...")
+            logging.info("正在生成語音...")
             response = self.client.models.generate_content(
                 model=GEMINI_MODELS["tts"],
                 contents=script_text,
@@ -250,7 +259,7 @@ class PaperPodcastGenerator:
             )
             
             audio_data = response.candidates[0].content.parts[0].inline_data.data
-            self._log(f"🎵 語音生成完畢，大小: {len(audio_data):,} bytes")
+            logging.info(f"🎵 語音生成完畢，大小: {len(audio_data):,} bytes")
             return audio_data
             
         except Exception as e:
@@ -281,9 +290,9 @@ class PaperPodcastGenerator:
 
             # 5. 計算音檔時長
             duration_seconds = self._get_audio_duration(audio_data)
-            self._log(f"⏱️ 音檔時長計算完成: {duration_seconds:.2f} 秒")
+            logging.info(f"⏱️ 音檔時長計算完成: {duration_seconds:.2f} 秒")
             
-            self._log("\n✅ 播客生成完成！所有內容已在記憶體中準備好。")
+            logging.info("\n✅ 播客生成完成！所有內容已在記憶體中準備好。")
             
             # 建立一個預設的 Podcast 標題
             podcast_title = f"學術新知解密：深入探討《{paper_info.title}》"
@@ -326,13 +335,16 @@ class PaperPodcastGenerator:
 
 def main():
     """主程式，用於獨立測試"""
-    print("=== 論文播客生成器（模組化版） ===")
+    # 由於此檔案現在是模組，我們需要在此處設定日誌才能看到輸出
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    
+    logging.info("=== 論文播客生成器（模組化版） ===")
     
     try:
         # 從環境變數加載 API Key
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            print("錯誤：請設定 GEMINI_API_KEY 環境變數。")
+            logging.error("錯誤：請設定 GEMINI_API_KEY 環境變數。")
             return
             
         generator = PaperPodcastGenerator(api_key=api_key)
@@ -340,18 +352,18 @@ def main():
         # 獲取用戶輸入
         pdf_url = input("請輸入論文PDF的URL：\n").strip()
         if not pdf_url:
-            print("未提供URL，程式結束。")
+            logging.info("未提供URL，程式結束。")
             return
             
         # 處理論文
         results = generator.process_paper(pdf_url)
         
-        print("\n=== 處理結果摘要 ===")
-        print(f"🎧 Podcast 標題: {results['podcast_title']}")
-        print(f"🎵 音檔大小: {len(results['audio_data']) / 1024:.2f} KB")
-        print(f"⏱️ 音檔時長: {results['duration_seconds']:.2f} 秒")
-        print(f"📄 論文標題: {results['paper_info'].title}")
-        print(f"📝 逐字稿長度: {len(results['script'])} 字")
+        logging.info("\n=== 處理結果摘要 ===")
+        logging.info(f"🎧 Podcast 標題: {results['podcast_title']}")
+        logging.info(f"🎵 音檔大小: {len(results['audio_data']) / 1024:.2f} KB")
+        logging.info(f"⏱️ 音檔時長: {results['duration_seconds']:.2f} 秒")
+        logging.info(f"📄 論文標題: {results['paper_info'].title}")
+        logging.info(f"📝 逐字稿長度: {len(results['script'])} 字")
         
         # 為了測試，可以選擇性地儲存音檔
         save_choice = input("是否要將音檔儲存為 'test_output.wav'？(y/N): ").lower()
@@ -361,10 +373,10 @@ def main():
                 wf.setsampwidth(2)
                 wf.setframerate(24000)
                 wf.writeframes(results['audio_data'])
-            print("音檔已儲存。")
+            logging.info("音檔已儲存。")
         
     except Exception as e:
-        print(f"\n❌ 發生錯誤: {e}")
+        logging.error(f"\n❌ 發生錯誤: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

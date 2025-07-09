@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: 簽出程式碼倉庫
         uses: actions/checkout@v4
@@ -15,7 +16,7 @@ jobs:
       - name: 設定 Python 環境
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11" # 指定 Python 版本
+          python-version: "3.13" # 指定 Python 版本
 
       - name: 安裝 uv
         uses: astral-sh/setup-uv@v5
@@ -28,4 +29,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: uv run main.py
+        run: uv run python main.py

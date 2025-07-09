@@ -3,5 +3,5 @@ supabase
 pydantic
 httpx
 arxiv
-supabase
 python-dotenv
+pydantic-settings

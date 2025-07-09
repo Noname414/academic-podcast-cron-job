@@ -1,50 +1,29 @@
 # -*- coding: utf-8 -*-
-"""
-專案設定檔
-集中管理所有可調整的參數，方便維護與修改。
-"""
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Gemini API 相關設定
-GEMINI_MODELS = {
-    # 用於從 PDF 提取結構化論文資訊的模型
-    "info_extraction": "gemini-2.5-pro",
+class Settings(BaseSettings):
+    """
+    統一管理專案的所有設定，能自動從 .env 檔案或環境變數讀取。
+    """
+    # .env 檔案設定
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
+
+    # Supabase 設定
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
+    SUPABASE_BUCKET_NAME: str = "podcast-audio-files"
+
+    # Gemini API 設定
+    GEMINI_API_KEY: str
+
+    # Arxiv 搜尋設定
+    ARXIV_QUERY: str = "cat:cs.AI"
+    ARXIV_MAX_RESULTS: int = 5
     
-    # 用於生成 Podcast 逐字稿的模型
-    "script_generation": "gemini-2.5-pro",
-    
-    # 用於文字轉語音 (TTS) 的模型
-    "tts": "gemini-2.5-pro-preview-tts",
-}
+    # 輸出資料夾 (本地測試用)
+    OUTPUT_BASE_FOLDER: str = "Podcast_output"
 
-# Podcast 主持人設定
-PODCAST_SPEAKERS = {
-    "speaker1": {
-        "name": "林冠傑",
-        "voice": "Charon"  # 可選: Charon, Zephyr, Echo, Onyx, Nova, Aurora
-    },
-    "speaker2": {
-        "name": "林欣潔",
-        "voice": "Zephyr"
-    }
-}
 
-# ArXiv 搜尋設定
-ARXIV_SEARCH_CONFIG = {
-    # 每次執行時，從 arXiv 獲取的最新論文數量
-    "max_results": 5,
-    
-    # 搜尋的論文領域，例如 'cat:cs.AI', 'cat:cs.CV', 'cat:cs.CL'
-    "query": "cat:cs.AI"
-}
-
-# 檔案與路徑設定
-FILE_CONFIG = {
-    # 生成的 Podcast 檔案存放的基礎資料夾名稱
-    "output_base_folder": "Podcast_output"
-}
-
-# Supabase 設定
-SUPABASE_CONFIG = {
-    # 用於儲存音檔的 Storage Bucket 名稱
-    "bucket_name": "audios"
-} 
+# 建立一個全域可用的設定實例
+settings = Settings() 
