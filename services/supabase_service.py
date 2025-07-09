@@ -30,31 +30,22 @@ class SupabaseService:
     def upload_audio(self, destination_path: str, audio_data: bytes) -> str:
         """
         上傳音訊檔案到 Supabase Storage 並返回公開 URL。
+        使用 upsert=True，如果檔案已存在則會覆蓋，不存在則會建立。
         """
         try:
-            # 首先嘗試更新（如果檔案已存在）
-            try:
-                self.client.storage.from_(self.bucket_name).update(
-                    path=destination_path, 
-                    file=audio_data, 
-                    file_options={"contentType": "audio/wav", "upsert": "true"}
-                )
-                logging.info(f"🔄 成功更新 Storage 中的音檔: {destination_path}")
-            except Exception:
-                 # 如果更新失敗（通常是因為檔案不存在），則上傳新檔案
-                self.client.storage.from_(self.bucket_name).upload(
-                    path=destination_path, 
-                    file=audio_data, 
-                    file_options={"contentType": "audio/wav"}
-                )
-                logging.info(f"🔼 成功上傳新音檔到 Storage: {destination_path}")
+            self.client.storage.from_(self.bucket_name).upload(
+                path=destination_path,
+                file=audio_data,
+                file_options={"contentType": "audio/wav", "upsert": True}
+            )
+            logging.info(f"🔼 成功上傳/更新 Storage 中的音檔: {destination_path}")
 
             # 獲取公開 URL
             public_url = self.client.storage.from_(self.bucket_name).get_public_url(destination_path)
             logging.info(f"🔗 成功獲取音檔的公開 URL: {public_url}")
             return public_url
         except Exception as e:
-            logging.error(f"上傳音檔到 Storage 時失敗: {e}")
+            logging.error(f"上傳音檔到 Storage 時失敗: {e}", exc_info=True)
             raise
 
     def insert_paper(self, paper_data: dict):
