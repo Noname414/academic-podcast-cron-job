@@ -57,11 +57,15 @@ class PaperPodcastGenerator:
         
         # 檔案大小限制
         self.max_file_size = 100 * 1024 * 1024  # 100MB
+
+    def _log(self, message: str):
+        """帶有時間戳記的日誌記錄"""
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
         
     def read_pdf_from_url(self, pdf_url: str) -> bytes:
         """從URL讀取PDF內容"""
         try:
-            print(f"正在下載PDF: {pdf_url}")
+            self._log(f"正在下載PDF: {pdf_url}")
             if not pdf_url.startswith(('http://', 'https://')):
                 raise ValueError(f"無效的URL格式: {pdf_url}")
             
@@ -70,7 +74,7 @@ class PaperPodcastGenerator:
                 response.raise_for_status()
                 
                 if 'pdf' not in response.headers.get('content-type', '').lower() and not pdf_url.lower().endswith('.pdf'):
-                    print(f"警告: 內容類型可能不是PDF: {response.headers.get('content-type', '')}")
+                    self._log(f"警告: 內容類型可能不是PDF: {response.headers.get('content-type', '')}")
                 
                 pdf_data = response.content
                 if not pdf_data.startswith(b'%PDF'):
@@ -94,7 +98,7 @@ class PaperPodcastGenerator:
         try:
             pdf_path = Path(pdf_path).resolve()
             
-            print(f"正在讀取檔案: {pdf_path}")
+            self._log(f"正在讀取檔案: {pdf_path}")
             
             if not pdf_path.exists():
                 current_dir = Path.cwd()
@@ -117,10 +121,10 @@ class PaperPodcastGenerator:
                     f"(最大 {self.max_file_size / 1024 / 1024}MB)"
                 )
             
-            print(f"檔案大小: {file_size / 1024 / 1024:.2f}MB")
+            self._log(f"檔案大小: {file_size / 1024 / 1024:.2f}MB")
             
             if not pdf_path.suffix.lower() == '.pdf':
-                print(f"警告: 檔案擴展名不是.pdf: {pdf_path.suffix}")
+                self._log(f"警告: 檔案擴展名不是.pdf: {pdf_path.suffix}")
             
             with open(pdf_path, 'rb') as f:
                 pdf_data = f.read()
@@ -128,7 +132,7 @@ class PaperPodcastGenerator:
             if not pdf_data.startswith(b'%PDF'):
                 raise ValueError("檔案不是有效的PDF格式")
             
-            print(f"✅ 成功讀取PDF檔案，大小: {len(pdf_data):,} bytes")
+            self._log(f"✅ 成功讀取PDF檔案，大小: {len(pdf_data):,} bytes")
             return pdf_data
             
         except FileNotFoundError as e:
@@ -143,7 +147,7 @@ class PaperPodcastGenerator:
     def extract_paper_info(self, pdf_data: bytes) -> PaperInfo:
         """使用Gemini結構化輸出從PDF中提取論文資訊"""
         try:
-            print("正在分析論文內容...")
+            self._log("正在分析論文內容...")
             prompt = """
             請分析這篇學術論文，並用繁體中文提取以下關鍵資訊：
             1. 將論文標題翻譯成繁體中文
@@ -172,7 +176,7 @@ class PaperPodcastGenerator:
             )
             
             paper_info = PaperInfo.model_validate_json(response.text)
-            print(f"✅ 成功提取論文資訊: {paper_info.title}")
+            self._log(f"✅ 成功提取論文資訊: {paper_info.title}")
             return paper_info
             
         except Exception as e:
@@ -181,7 +185,7 @@ class PaperPodcastGenerator:
     def generate_podcast_script(self, paper_info: PaperInfo) -> Dict[str, Any]:
         """生成結構化播客討論逐字稿"""
         try:
-            print("正在生成播客逐字稿...")
+            self._log("正在生成播客逐字稿...")
             innovations_text = '\n'.join([f"- {innovation}" for innovation in paper_info.innovations])
             prompt = f"""
             根據以下論文內容，整理出雙人 Podcast 逐字稿，遵循以下規則：
@@ -228,7 +232,7 @@ class PaperPodcastGenerator:
     def generate_audio(self, script_text: str) -> bytes:
         """將逐字稿轉換為語音並回傳二進位資料"""
         try:
-            print("正在生成語音...")
+            self._log("正在生成語音...")
             response = self.client.models.generate_content(
                 model=GEMINI_MODELS["tts"],
                 contents=script_text,
@@ -246,7 +250,7 @@ class PaperPodcastGenerator:
             )
             
             audio_data = response.candidates[0].content.parts[0].inline_data.data
-            print(f"🎵 語音生成完畢，大小: {len(audio_data):,} bytes")
+            self._log(f"🎵 語音生成完畢，大小: {len(audio_data):,} bytes")
             return audio_data
             
         except Exception as e:
@@ -277,9 +281,9 @@ class PaperPodcastGenerator:
 
             # 5. 計算音檔時長
             duration_seconds = self._get_audio_duration(audio_data)
-            print(f"⏱️ 音檔時長計算完成: {duration_seconds:.2f} 秒")
+            self._log(f"⏱️ 音檔時長計算完成: {duration_seconds:.2f} 秒")
             
-            print("\n✅ 播客生成完成！所有內容已在記憶體中準備好。")
+            self._log("\n✅ 播客生成完成！所有內容已在記憶體中準備好。")
             
             # 建立一個預設的 Podcast 標題
             podcast_title = f"學術新知解密：深入探討《{paper_info.title}》"

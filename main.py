@@ -14,6 +14,10 @@ from arxiv_search import search_latest_ai_paper
 from podcast_generater import PaperPodcastGenerator, PaperInfo
 from config import ARXIV_SEARCH_CONFIG, SUPABASE_CONFIG
 
+def log_with_timestamp(message: str):
+    """帶有時間戳記的日誌記錄"""
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
+
 def init_supabase_client() -> Client:
     """初始化並返回 Supabase 客戶端"""
     load_dotenv()
@@ -29,7 +33,7 @@ def check_paper_exists(client: Client, arxiv_id: str) -> bool:
         response = client.table("papers").select("id").eq("arxiv_id", arxiv_id).execute()
         return len(response.data) > 0
     except Exception as e:
-        print(f"檢查論文時發生錯誤: {e}")
+        log_with_timestamp(f"檢查論文時發生錯誤: {e}")
         return False
 
 def upload_to_storage(client: Client, bucket_name: str, destination_path: str, file_data: bytes) -> str:
@@ -43,11 +47,11 @@ def upload_to_storage(client: Client, bucket_name: str, destination_path: str, f
         # 首先嘗試更新（如果檔案已存在）
         try:
             client.storage.from_(bucket_name).update(path=destination_path, file=file_data, file_options=options)
-            print(f"🔄 成功更新 Storage 中的檔案: {destination_path}")
+            log_with_timestamp(f"🔄 成功更新 Storage 中的檔案: {destination_path}")
         except Exception:
             # 如果更新失敗（通常是因為檔案不存在），則上傳新檔案
             client.storage.from_(bucket_name).upload(path=destination_path, file=file_data, file_options=options)
-            print(f"🔼 成功上傳新檔案到 Storage: {destination_path}")
+            log_with_timestamp(f"🔼 成功上傳新檔案到 Storage: {destination_path}")
 
         # 獲取公開 URL
         response = client.storage.from_(bucket_name).get_public_url(destination_path)
@@ -70,7 +74,7 @@ def create_paper_output_folder(arxiv_id: str) -> Path:
     output_base = Path(ARXIV_SEARCH_CONFIG.get("output_base_folder", "Podcast_output"))
     paper_folder = output_base / arxiv_id
     paper_folder.mkdir(parents=True, exist_ok=True)
-    print(f"📁 已創建本地輸出資料夾: {paper_folder}")
+    log_with_timestamp(f"📁 已創建本地輸出資料夾: {paper_folder}")
     return paper_folder
 
 def insert_paper_to_db(client: Client, paper_data: dict):
@@ -79,14 +83,14 @@ def insert_paper_to_db(client: Client, paper_data: dict):
         response = client.table("papers").insert(paper_data).execute()
         if len(response.data) == 0:
             raise Exception("插入資料失敗，沒有回傳資料。")
-        print(f"✅ 成功將論文 '{paper_data['title']}' 插入到資料庫")
+        log_with_timestamp(f"✅ 成功將論文 '{paper_data['title']}' 插入到資料庫")
         return response.data[0]
     except Exception as e:
         raise Exception(f"插入資料庫時失敗: {e}")
 
 def main_workflow():
     """完整的工作流程"""
-    print("🚀 開始執行每日論文播客生成工作流程...")
+    log_with_timestamp("🚀 開始執行每日論文播客生成工作流程...")
     
     try:
         # 1. 初始化
@@ -94,27 +98,27 @@ def main_workflow():
         podcast_generator = PaperPodcastGenerator()
         
         # 2. 搜尋最新的論文
-        print("\n🔍 正在從 arXiv 搜尋最新論文...")
+        log_with_timestamp("\n🔍 正在從 arXiv 搜尋最新論文...")
         latest_papers = search_latest_ai_paper(
             query=ARXIV_SEARCH_CONFIG["query"],
             max_results=ARXIV_SEARCH_CONFIG["max_results"]
         )
         if not latest_papers:
-            print("沒有找到新的論文。工作流程結束。")
+            log_with_timestamp("沒有找到新的論文。工作流程結束。")
             return
 
         for paper in latest_papers:
             arxiv_id = paper['arxiv_id']
             pdf_url = paper['pdf_url']
-            print(f"\n📄 找到論文: {paper['title']} (ID: {arxiv_id})")
+            log_with_timestamp(f"\n📄 找到論文: {paper['title']} (ID: {arxiv_id})")
 
             # 3. 檢查論文是否已存在
             if check_paper_exists(supabase, arxiv_id):
-                print(f"✅ 這篇論文 (ID: {arxiv_id}) 已經在資料庫中，跳過處理。")
+                log_with_timestamp(f"✅ 這篇論文 (ID: {arxiv_id}) 已經在資料庫中，跳過處理。")
                 continue
 
             # 4. 處理新論文
-            print(f"✨ 找到新論文，開始生成 Podcast...")
+            log_with_timestamp(f"✨ 找到新論文，開始生成 Podcast...")
             try:
                 # 生成 Podcast 內容和檔案
                 podcast_result = podcast_generator.process_paper(pdf_url=pdf_url)
@@ -127,31 +131,32 @@ def main_workflow():
                 info_path = output_folder / f"{arxiv_id}_info.json"
                 with open(info_path, 'w', encoding='utf-8') as f:
                     json.dump(paper_info.model_dump(), f, ensure_ascii=False, indent=4)
-                print(f"📄 論文資訊已儲存到: {info_path}")
+                log_with_timestamp(f"📄 論文資訊已儲存到: {info_path}")
 
                 # 儲存逐字稿
                 script_path = output_folder / f"{arxiv_id}_script.txt"
                 script_path.write_text(podcast_result['script'], encoding='utf-8')
-                print(f"📝 逐字稿已儲存到: {script_path}")
+                log_with_timestamp(f"📝 逐字稿已儲存到: {script_path}")
 
                 # 將 raw PCM 音訊轉換為 WAV 格式
-                print("🎙️ 正在將音訊轉換為 WAV 格式...")
+                log_with_timestamp("🎙️ 正在將音訊轉換為 WAV 格式...")
                 wav_data = convert_pcm_to_wav_in_memory(podcast_result['audio_data'])
                 
                 # 儲存音檔
                 audio_path = output_folder / f"{arxiv_id}.wav"
                 with open(audio_path, 'wb') as f:
                     f.write(wav_data)
-                print(f"🎵 音檔已儲存到: {audio_path}")
+                log_with_timestamp(f"🎵 音檔已儲存到: {audio_path}")
 
                 # 5. 上傳音檔到 Supabase Storage
-                print("☁️ 正在上傳音檔到 Supabase Storage...")
+                log_with_timestamp("☁️ 正在上傳音檔到 Supabase Storage...")
                 bucket_name = SUPABASE_CONFIG["bucket_name"]
                 audio_dest_path = f"{arxiv_id}.wav"
                 audio_url = upload_to_storage(supabase, bucket_name, audio_dest_path, wav_data)
-                print(f"🔗 音檔 URL: {audio_url}")
+                log_with_timestamp(f"🔗 音檔 URL: {audio_url}")
 
                 # 6. 準備資料並寫入資料庫
+                duration = podcast_result.get('duration_seconds')
                 db_record = {
                     "arxiv_id": arxiv_id,
                     "title": paper_info.title,
@@ -167,16 +172,16 @@ def main_workflow():
                     "arxiv_url": paper.get('arxiv_url'),
                     "pdf_url": pdf_url,
                     "audio_url": audio_url,
-                    "duration_seconds": podcast_result.get('duration_seconds'),
+                    "duration_seconds": round(duration) if duration is not None else None,
                     # "podcast_title": podcast_result['podcast_title'],
                     # "podcast_script": podcast_result['script'],
                 }
                 
                 insert_paper_to_db(supabase, db_record)
-                print(f"🎉 成功處理並儲存論文: {paper_info.title}")
+                log_with_timestamp(f"🎉 成功處理並儲存論文: {paper_info.title}")
 
             except Exception as e:
-                print(f"處理論文 {arxiv_id} 時發生嚴重錯誤: {e}")
+                log_with_timestamp(f"處理論文 {arxiv_id} 時發生嚴重錯誤: {e}")
                 # 即使單篇論文失敗，也繼續處理下一篇
                 continue
             
@@ -184,9 +189,9 @@ def main_workflow():
             break
 
     except Exception as e:
-        print(f"😭 工作流程執行失敗: {e}")
+        log_with_timestamp(f"😭 工作流程執行失敗: {e}")
 
-    print("\n🏁 工作流程執行完畢。")
+    log_with_timestamp("\n🏁 工作流程執行完畢。")
 
 if __name__ == "__main__":
     main_workflow() 
