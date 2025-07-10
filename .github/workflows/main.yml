@@ -3,7 +3,7 @@ name: 每日論文播客生成
 on:
   workflow_dispatch: # 允許手動觸發
   schedule:
-    - cron: "0 16 * * *" # 每天 UTC 00:00 = 台灣 08:00
+    - cron: "0 */8 * * *" # 每8小時執行一次，一天更新3次
 
 jobs:
   build-and-deploy:
