@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
 import logging
 from pathlib import Path
 import json
@@ -18,7 +19,9 @@ def save_output_locally(
     try:
         logging.info(f"📁 準備將產出儲存到本地資料夾 (僅供測試)...")
         output_base = Path(output_base_folder)
-        paper_folder = output_base / arxiv_id
+        # 加上時間戳記
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        paper_folder = output_base / f"{timestamp}_{arxiv_id}_{paper_info.title}"
         paper_folder.mkdir(parents=True, exist_ok=True)
         logging.info(f"   - 本地輸出資料夾: {paper_folder}")
 

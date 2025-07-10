@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+from typing import Optional
 from supabase import Client, create_client
 from config import Settings
 
@@ -15,17 +16,19 @@ class SupabaseService:
         self.bucket_name: str = settings.SUPABASE_BUCKET_NAME
         logging.info("Supabase 服務已成功初始化。")
 
-    def check_paper_exists(self, arxiv_id: str) -> bool:
+    def check_paper_exists(self, arxiv_id: str) -> Optional[str]:
         """
         檢查論文是否已存在於資料庫中。
         """
         try:
-            response = self.client.table("papers").select("id").eq("arxiv_id", arxiv_id).execute()
-            return len(response.data) > 0
+            response = self.client.table("papers").select("title").eq("arxiv_id", arxiv_id).execute()
+            if response.data:
+                return response.data[0]['title']
+            return None
         except Exception as e:
             logging.error(f"檢查論文 '{arxiv_id}' 時發生錯誤: {e}")
             # 在發生錯誤時，我們假設論文不存在，以允許重試
-            return False
+            return None
 
     def upload_audio(self, destination_path: str, audio_data: bytes) -> str:
         """

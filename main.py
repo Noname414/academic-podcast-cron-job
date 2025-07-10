@@ -105,8 +105,9 @@ def main_workflow():
             arxiv_id = paper['arxiv_id']
             
             # 3. 檢查論文是否已存在
-            if supabase_service.check_paper_exists(arxiv_id):
-                logging.info(f"✅ 論文 (ID: {arxiv_id}) 已存在，跳過處理。")
+            existing_title = supabase_service.check_paper_exists(arxiv_id)
+            if existing_title:
+                logging.info(f"✅ 論文 (ID: {arxiv_id}, 標題: {existing_title}) 已存在，跳過處理。")
                 continue
             
             new_papers_found += 1

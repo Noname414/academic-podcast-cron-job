@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # Supabase 設定
     SUPABASE_URL: str
     SUPABASE_KEY: str
-    SUPABASE_BUCKET_NAME: str = "audio"
+    SUPABASE_BUCKET_NAME: str = "audios"
 
     # Gemini API 設定
     GEMINI_API_KEY: str
