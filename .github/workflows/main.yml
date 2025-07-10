@@ -3,12 +3,12 @@ name: 每日論文播客生成
 on:
   workflow_dispatch: # 允許手動觸發
   schedule:
-    - cron: "0 16 * * *" # 每天 UTC 午夜執行 台灣時區+8
+    - cron: "0 16 * * *" # 每天 UTC 00:00 = 台灣 08:00
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 20 # 最長 20 分鐘內要完成，否則自動取消
     steps:
       - name: 簽出程式碼倉庫
         uses: actions/checkout@v4
@@ -16,7 +16,7 @@ jobs:
       - name: 設定 Python 環境
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13" # 指定 Python 版本
+          python-version: "3.13"
 
       - name: 安裝 uv
         uses: astral-sh/setup-uv@v5
@@ -29,4 +29,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: uv run python main.py
+        run: |
+          # 背景 keep-alive，每 60 秒輸出一次訊息，防止 GitHub idle timeout
+          while true; do echo "🟡 Keep alive... $(date)"; sleep 60; done &
+          # 執行主程式
+          uv run python main.py
