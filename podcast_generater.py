@@ -199,7 +199,7 @@ class PaperPodcastGenerator:
             prompt = f"""
             根據以下論文內容，整理出雙人 Podcast 逐字稿，遵循以下規則：
             - 逐字稿使用繁體中文。
-            - 逐字稿總長度約 700 字。
+            - 逐字稿總長度約 850 字。
             - 分別有 主持人 "{self.speaker1}" 與 主持人 "{self.speaker2}"，"{self.speaker1}" 為台灣人年輕男性、"{self.speaker2}" 為台灣人年輕女性。
             - 如果有必要，主持人互相使用 "你" 稱呼。
             - 皆使用台灣用語、台灣連接詞，可以適時使用台灣狀聲詞。
