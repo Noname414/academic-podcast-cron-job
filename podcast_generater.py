@@ -33,6 +33,7 @@ PODCAST_SPEAKERS = {
 class PaperInfo(BaseModel):
     """論文資訊的結構化模型"""
     title: str = Field(description="論文標題的中文翻譯")
+    authors: List[str] = Field(description="論文作者列表")
     abstract: str = Field(description="論文摘要的中文翻譯，約200-300字")
     field: str = Field(description="主要研究領域")
     tags: List[str] = Field(description="論文的關鍵字標籤，3-5個")
@@ -160,12 +161,13 @@ class PaperPodcastGenerator:
             prompt = """
             請分析這篇學術論文，並用繁體中文提取以下關鍵資訊：
             1. 將論文標題翻譯成繁體中文
-            2. 將論文摘要翻譯成繁體中文，大約200-300字
-            3. 識別主要研究領域
-            4. 總結3-5個核心創新點或貢獻
-            5. 簡述研究方法
-            6. 概括主要結果或發現
-            7. 提供3-5個最相關的關鍵字標籤 (tags)
+            2. 提取論文作者列表（保持原文名稱）
+            3. 將論文摘要翻譯成繁體中文，大約200-300字
+            4. 識別主要研究領域
+            5. 總結3-5個核心創新點或貢獻
+            6. 簡述研究方法
+            7. 概括主要結果或發現
+            8. 提供3-5個最相關的關鍵字標籤 (tags)
             請確保所有內容都使用繁體中文，並且準確反映論文的核心內容。
             """
             
@@ -265,19 +267,27 @@ class PaperPodcastGenerator:
         except Exception as e:
             raise Exception(f"生成語音失敗: {str(e)}")
     
-    def process_paper(self, pdf_url: str) -> Dict[str, Any]:
+    def process_paper(self, pdf_url: str = None, pdf_data: bytes = None) -> Dict[str, Any]:
         """
-        完整處理單篇論文，從下載到生成所有內容，並在記憶體中回傳。
+        完整處理單篇論文，從下載或直接使用 PDF 資料到生成所有內容，並在記憶體中回傳。
         
         Args:
-            pdf_url (str): 論文的 PDF URL。
+            pdf_url (str, optional): 論文的 PDF URL。
+            pdf_data (bytes, optional): 直接提供的 PDF 二進位資料。
             
         Returns:
             Dict[str, Any]: 包含所有生成資訊和音檔資料的字典。
         """
         try:
-            # 1. 下載 PDF
-            pdf_data = self.read_pdf_from_url(pdf_url)
+            # 1. 獲取 PDF 資料
+            if pdf_data is not None:
+                logging.info("使用提供的 PDF 二進位資料")
+                if not pdf_data.startswith(b'%PDF'):
+                    raise ValueError("提供的資料不是有效的PDF格式")
+            elif pdf_url is not None:
+                pdf_data = self.read_pdf_from_url(pdf_url)
+            else:
+                raise ValueError("必須提供 pdf_url 或 pdf_data 其中之一")
             
             # 2. 分析論文
             paper_info = self.extract_paper_info(pdf_data)

@@ -1,0 +1,36 @@
+name: 用戶上傳論文自動處理
+
+on:
+  workflow_dispatch: # 允許手動觸發
+  schedule:
+    - cron: "0 2,10,18 * * *" # 每天 2:00, 10:00, 18:00 (UTC) 執行，一天更新3次
+
+jobs:
+  process-user-uploads:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 # 最長 30 分鐘內要完成，處理用戶上傳可能需要更多時間
+    steps:
+      - name: 簽出程式碼倉庫
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 安裝 uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: 使用 uv 安裝依賴套件
+        run: uv sync
+
+      - name: 執行用戶上傳論文處理工作流程
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # 背景 keep-alive，每 60 秒輸出一次訊息，防止 GitHub idle timeout
+          while true; do echo "🟡 Keep alive for upload processing... $(date)"; sleep 60; done &
+          # 執行用戶上傳處理程式
+          uv run python upload_processor.py
